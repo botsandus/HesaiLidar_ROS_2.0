@@ -63,6 +63,7 @@ public:
   void SpinRos2(){rclcpp::spin(this->node_ptr_);}
   std::shared_ptr<rclcpp::Node> node_ptr_;
   std::shared_ptr<HesaiLidarSdk<LidarPointXYZIRT>> driver_ptr_;
+
 protected:
   // Save Correction file subscribed by "ros_recv_correction_topic"
   void RecieveCorrection(const std_msgs::msg::UInt8MultiArray::SharedPtr msg);
@@ -72,15 +73,8 @@ protected:
   void SendPointCloud(const LidarDecodedFrame<LidarPointXYZIRT>& msg);
   // Used to publish the original pcake through 'ros_send_packet_topic'
   void SendPacket(const UdpFrame_t&  ros_msg, double timestamp);
-
   // Used to publish the Correction file through 'ros_send_correction_topic'
   void SendCorrection(const u8Array_t& msg);
-  // Used to publish the Packet loss condition
-  void SendPacketLoss(const uint32_t& total_packet_count, const uint32_t& total_packet_loss_count);
-  // Used to publish the Packet loss condition
-  void SendPTP(const uint8_t& ptp_lock_offset, const u8Array_t& ptp_status);
-  // Used to publish the firetime correction 
-  void SendFiretime(const double *firetime_correction_);
   // Used to publish the imu packet
   void SendImuConfig(const LidarImuData& msg);
 
@@ -108,10 +102,7 @@ protected:
   rclcpp::Subscription<hesai_ros_driver::msg::UdpFrame>::SharedPtr pkt_sub_;
   rclcpp::Publisher<hesai_ros_driver::msg::UdpFrame>::SharedPtr pkt_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_;
-  rclcpp::Publisher<hesai_ros_driver::msg::Firetime>::SharedPtr firetime_pub_;
   rclcpp::Publisher<std_msgs::msg::UInt8MultiArray>::SharedPtr crt_pub_;
-  rclcpp::Publisher<hesai_ros_driver::msg::LossPacket>::SharedPtr loss_pub_;
-  rclcpp::Publisher<hesai_ros_driver::msg::Ptp>::SharedPtr ptp_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
 
   //spin thread while recieve data from ROS topic
@@ -128,67 +119,42 @@ inline void SourceDriver::Init(const YAML::Node& config)
   if (driver_param.input_param.send_point_cloud_ros) {
     pub_ = node_ptr_->create_publisher<sensor_msgs::msg::PointCloud2>(driver_param.input_param.ros_send_point_topic, 10);
   }
-  if (driver_param.input_param.send_imu_ros) {
-    imu_pub_ = node_ptr_->create_publisher<sensor_msgs::msg::Imu>(driver_param.input_param.ros_send_imu_topic, 10);
-  }
-
-  if (driver_param.input_param.ros_send_packet_loss_topic != NULL_TOPIC) {
-    loss_pub_ = node_ptr_->create_publisher<hesai_ros_driver::msg::LossPacket>(driver_param.input_param.ros_send_packet_loss_topic, 10);
-  }
-
   if (driver_param.input_param.source_type == DATA_FROM_LIDAR) {
-    if (driver_param.input_param.ros_send_ptp_topic != NULL_TOPIC) {
-      ptp_pub_ = node_ptr_->create_publisher<hesai_ros_driver::msg::Ptp>(driver_param.input_param.ros_send_ptp_topic, 10);
-    }
-
     if (driver_param.input_param.ros_send_correction_topic != NULL_TOPIC) {
       crt_pub_ = node_ptr_->create_publisher<std_msgs::msg::UInt8MultiArray>(driver_param.input_param.ros_send_correction_topic, 10);
     }
   }
-  if (! driver_param.input_param.firetimes_path.empty() ) {
-    if (driver_param.input_param.ros_send_firetime_topic != NULL_TOPIC) {
-      firetime_pub_ = node_ptr_->create_publisher<hesai_ros_driver::msg::Firetime>(driver_param.input_param.ros_send_firetime_topic, 10);
-    } 
-  }
-
-  if (driver_param.input_param.send_packet_ros) {
+  if (driver_param.input_param.send_packet_ros && driver_param.input_param.source_type != DATA_FROM_ROS_PACKET) {
     pkt_pub_ = node_ptr_->create_publisher<hesai_ros_driver::msg::UdpFrame>(driver_param.input_param.ros_send_packet_topic, 10);
   }
 
   if (driver_param.input_param.source_type == DATA_FROM_ROS_PACKET) {
     pkt_sub_ = node_ptr_->create_subscription<hesai_ros_driver::msg::UdpFrame>(driver_param.input_param.ros_recv_packet_topic, 10, 
-                              std::bind(&SourceDriver::RecievePacket, this, std::placeholders::_1));
-    if (driver_param.input_param.ros_recv_correction_topic != NULL_TOPIC) {    
-      crt_sub_ = node_ptr_->create_subscription<std_msgs::msg::UInt8MultiArray>(driver_param.input_param.ros_recv_correction_topic, 10, 
-                              std::bind(&SourceDriver::RecieveCorrection, this, std::placeholders::_1));
-    }
+    std::bind(&SourceDriver::RecievePacket, this, std::placeholders::_1));
+  if (driver_param.input_param.ros_recv_correction_topic != NULL_TOPIC) {    
+    crt_sub_ = node_ptr_->create_subscription<std_msgs::msg::UInt8MultiArray>(driver_param.input_param.ros_recv_correction_topic, 10, 
+    std::bind(&SourceDriver::RecieveCorrection, this, std::placeholders::_1));
+  }
     driver_param.decoder_param.enable_udp_thread = false;
     subscription_spin_thread_ = new boost::thread(boost::bind(&SourceDriver::SpinRos2,this));
   }
+  imu_pub_ = node_ptr_->create_publisher<sensor_msgs::msg::Imu>(driver_param.input_param.ros_send_imu_topic, 10);
+  
   driver_ptr_.reset(new HesaiLidarSdk<LidarPointXYZIRT>());
   driver_param.decoder_param.enable_parser_thread = true;
-  if (driver_param.input_param.send_point_cloud_ros) {
-    driver_ptr_->RegRecvCallback([this](const hesai::lidar::LidarDecodedFrame<hesai::lidar::LidarPointXYZIRT>& frame) {  
-      this->SendPointCloud(frame);  
-    });  
-  }
-  if (driver_param.input_param.send_imu_ros) {
-    driver_ptr_->RegRecvCallback(std::bind(&SourceDriver::SendImuConfig, this, std::placeholders::_1));
-  }
-  if (driver_param.input_param.send_packet_ros) {
+  // driver_ptr_->RegRecvCallback(std::bind(&SourceDriver::SendPointCloud, this, std::placeholders::_1));
+  driver_ptr_->RegRecvCallback([this](const hesai::lidar::LidarDecodedFrame<hesai::lidar::LidarPointXYZIRT>& frame) {  
+    this->SendPointCloud(frame);  
+  });  
+  if(driver_param.input_param.send_packet_ros && driver_param.input_param.source_type != DATA_FROM_ROS_PACKET){
     driver_ptr_->RegRecvCallback(std::bind(&SourceDriver::SendPacket, this, std::placeholders::_1, std::placeholders::_2)) ;
-  }
-  if (driver_param.input_param.ros_send_packet_loss_topic != NULL_TOPIC) {
-    driver_ptr_->RegRecvCallback(std::bind(&SourceDriver::SendPacketLoss, this, std::placeholders::_1, std::placeholders::_2));
   }
   if (driver_param.input_param.source_type == DATA_FROM_LIDAR) {
     if (driver_param.input_param.ros_send_correction_topic != NULL_TOPIC) {
       driver_ptr_->RegRecvCallback(std::bind(&SourceDriver::SendCorrection, this, std::placeholders::_1));
     }
-    if (driver_param.input_param.ros_send_ptp_topic != NULL_TOPIC) {
-      driver_ptr_->RegRecvCallback(std::bind(&SourceDriver::SendPTP, this, std::placeholders::_1, std::placeholders::_2));
-    }
   } 
+  driver_ptr_->RegRecvCallback(std::bind(&SourceDriver::SendImuConfig, this, std::placeholders::_1));
   if (!driver_ptr_->Init(driver_param))
   {
     std::cout << "Driver Initialize Error...." << std::endl;
@@ -224,21 +190,6 @@ inline void SourceDriver::SendPointCloud(const LidarDecodedFrame<LidarPointXYZIR
 inline void SourceDriver::SendCorrection(const u8Array_t& msg)
 {
   crt_pub_->publish(ToRosMsg(msg));
-}
-
-inline void SourceDriver::SendPacketLoss(const uint32_t& total_packet_count, const uint32_t& total_packet_loss_count)
-{
-  loss_pub_->publish(ToRosMsg(total_packet_count, total_packet_loss_count));
-}
-
-inline void SourceDriver::SendPTP(const uint8_t& ptp_lock_offset, const u8Array_t& ptp_status)
-{
-  ptp_pub_->publish(ToRosMsg(ptp_lock_offset, ptp_status));
-}
-
-inline void SourceDriver::SendFiretime(const double *firetime_correction_)
-{
-  firetime_pub_->publish(ToRosMsg(firetime_correction_));
 }
 
 inline void SourceDriver::SendImuConfig(const LidarImuData& msg)
@@ -292,7 +243,6 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
     ++iter_timestamp_;   
   }
   // printf("HesaiLidar Runing Status [standby mode:%u]  |  [speed:%u]\n", frame.work_mode, frame.spin_speed);
-  printf("frame:%d points:%u packet:%d start time:%lf end time:%lf\n",frame.frame_index, frame.points_num, frame.packet_num, frame.points[0].timestamp, frame.points[frame.points_num - 1].timestamp) ;
   std::cout.flush();
   auto sec = (uint64_t)floor(frame.points[0].timestamp);
   if (sec <= std::numeric_limits<int32_t>::max()) {
@@ -392,6 +342,7 @@ inline void SourceDriver::RecieveCorrection(const std_msgs::msg::UInt8MultiArray
     }
   }
 }
+
 inline double SourceDriver::From_g_To_ms2(double g)
 {
   return g * 9.80665;

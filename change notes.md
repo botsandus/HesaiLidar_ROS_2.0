@@ -56,21 +56,11 @@ V2.0.8
 3. Add parameter to filter point cloud or fault message data for a specified port: device_udp_src_port, device_fault_port
 
 ################################################################################
-Monday December 23rd, 2024 14:57:29 CST
+Thursday January 16th, 2025 14:59:10 CST
 ## version
-V2.0.9
+V2.1.0
 
 ## modify
-1. Distance Correction and XT S Point Cloud Layering Correction No need to specify radar model, via flag position switch
-
-################################################################################
-Monday June 30rd, 2025 17:28:15
-## version
-2.0.10
-
-## modify
-1. Modify the units of IMU output data to m/s² and rad/s respectively
-2. Use multicast_ip_address instead of group_address
-3. Modify the config.yaml configuration table, configure different data sources through source_type, and fill in the corresponding configuration items
-4. send_imu_ros controls whether IMU data registers callback functions and whether to publish IMU data
-5. Support jazzy version, support install
+1. Only support JT16
+2. Supports timeout detection for point clouds
+3. Supports retrying to open the serial port for point cloud reception on timeout.

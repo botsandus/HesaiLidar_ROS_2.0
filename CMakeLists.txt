@@ -6,16 +6,14 @@ project(hesai_ros_driver)
 # Version information
 #=======================================
 set(VERSION_MAJOR 2)
-set(VERSION_MINOR 0)
-set(VERSION_TINY  10)
+set(VERSION_MINOR 2)
+set(VERSION_TINY  2)
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/Version.h.in"
   "${CMAKE_CURRENT_BINARY_DIR}/Version.h"
 )
 
-set(WITH_PTCS_USE ON CACHE BOOL "Use Ptcs")
-# set(FIND_CUDA ON CACHE BOOL "Find CUDA")
-
+# set(FIND_CUDA ON CACHE BOOL "FIND_CUDA")
 if(FIND_CUDA)
     find_package(CUDA )
 endif()
@@ -25,11 +23,10 @@ if(${CUDA_FOUND})
 	set(CUDA_SEPARABLE_COMPILATION ON)
 	include_directories(${CUDA_INCLUDE_DIRS})
 	set(CUDA_PROPAGATE_HOST_FLAGS OFF)
-	set(CUDA_NVCC_FLAGS -arch=sm_61;-O3;-G;-g;)#根据具体GPU性能更改算力参数
+	set(CUDA_NVCC_FLAGS -arch=sm_61;-O3;-G;-g;-std=c++14)#根据具体GPU性能更改算力参数
 	link_directories($ENV{CUDA_PATH}/lib/x64)
 
-  add_definitions(-DUSE_CUDA)
-  set(FIND_CUDA ON CACHE BOOL "Use Cuda")
+  	add_definitions(-DUSE_CUDA)
 else(${CUDA_FOUND})
 	MESSAGE(STATUS "cuda not found!")
 endif(${CUDA_FOUND})
@@ -58,17 +55,9 @@ if (CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE Release)
   add_definitions(-O3)
 endif()
-if(($ENV{ROS_DISTRO} STREQUAL "kilted"))
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20")
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-elseif(($ENV{ROS_DISTRO} STREQUAL "jazzy"))
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-elseif($ENV{ROS_DISTRO} STREQUAL "humble")  # the ros2 humble requires c++17
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-else()
-add_definitions(-std=c++14)
-endif()
+
+add_definitions(-std=c++17)
+
 
 add_compile_options(-Wall)
 
@@ -175,12 +164,6 @@ find_package(Boost REQUIRED COMPONENTS thread)
 include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
-set(LIB_TARGETS 
-    hesai_sdk_lib
-    log_lib
-    lidar_lib
-    )
-
 if(${CUDA_FOUND})
   add_executable(hesai_ros_driver_node
     node/hesai_ros_driver_node.cu
@@ -195,8 +178,8 @@ endif()
 target_link_libraries(hesai_ros_driver_node                   
             ${YAML_CPP_LIBRARIES}
             ${Boost_LIBRARIES}
-            ${LIB_TARGETS}
-)              
+            hesai_sdk_lib
+)            
 
 target_include_directories(hesai_ros_driver_node PRIVATE
   src/manager
@@ -209,15 +192,10 @@ target_include_directories(hesai_ros_driver_node PRIVATE
 #Ros#
 if($ENV{ROS_VERSION} MATCHES "1")
   target_link_libraries(hesai_ros_driver_node  ${ROS_LIBS})
-  install(TARGETS hesai_ros_driver_node ${LIB_TARGETS}
+  install(TARGETS hesai_ros_driver_node
           RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
           LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
           ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
-  install(DIRECTORY
-          launch
-          rviz
-          config
-          DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 endif($ENV{ROS_VERSION} MATCHES "1")
 
 
@@ -234,25 +212,17 @@ if($ENV{ROS_VERSION} MATCHES "2")
   "sensor_msgs" 
   # "tf2_geometry_msgs"
   )
-
-if(($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
-  rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
-  target_link_libraries(hesai_ros_driver_node "${cpp_typesupport_target}")
-else()
   rosidl_target_interfaces(hesai_ros_driver_node  ${PROJECT_NAME} "rosidl_typesupport_cpp")
-endif()
 
   install(TARGETS
-          hesai_ros_driver_node
-          DESTINATION lib/${PROJECT_NAME})
-  install(TARGETS
-          ${LIB_TARGETS}
-          DESTINATION lib)
+    hesai_ros_driver_node
+    DESTINATION lib/${PROJECT_NAME})
 
   install(DIRECTORY
-          launch
-          rviz
-          DESTINATION share/${PROJECT_NAME})
+    launch
+    rviz
+    DESTINATION share/${PROJECT_NAME})
+    
 
   ament_package()
 
