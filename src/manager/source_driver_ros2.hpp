@@ -300,12 +300,15 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
   // printf("HesaiLidar Runing Status [standby mode:%u]  |  [speed:%u]\n", frame.work_mode, frame.spin_speed);
   printf("%s frame:%d points:%u packet:%d start time:%lf end time:%lf\n", prefix, frame_index, points_number, packet_number, frame_start_timestamp, frame_end_timestamp) ;
   std::cout.flush();
-  auto sec = (uint64_t)floor(frame_start_timestamp);
+  // TODO: parameterize and implement properly for all timestamp modes
+  double ptp_utc_tai_offset = -37.0;
+  double utc_timestamp = frame_start_timestamp + ptp_utc_tai_offset;
+  auto sec = (uint64_t)floor(utc_timestamp);
   if (sec <= std::numeric_limits<int32_t>::max()) {
-    ros_msg.header.stamp.sec = (uint32_t)floor(frame_start_timestamp);
-    ros_msg.header.stamp.nanosec = (uint32_t)round((frame_start_timestamp - ros_msg.header.stamp.sec) * 1e9);
+    ros_msg.header.stamp.sec = (uint32_t)floor(utc_timestamp);
+    ros_msg.header.stamp.nanosec = (uint32_t)round((utc_timestamp - ros_msg.header.stamp.sec) * 1e9);
   } else {
-    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", frame_start_timestamp);
+    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_timestamp);
   }
   ros_msg.header.frame_id = frame_id_;
   return ros_msg;
@@ -320,12 +323,15 @@ inline hesai_ros_driver::msg::UdpFrame SourceDriver::ToRosMsg(const UdpFrame_t& 
     memcpy(&rawpacket.data[0], &ros_msg[i].buffer[0], ros_msg[i].packet_len);
     rs_msg.packets.push_back(rawpacket);
   }
-  auto sec = (uint64_t)floor(timestamp);
+  // TODO: parameterize and implement properly for all timestamp modes
+  double ptp_utc_tai_offset = -37.0;
+  double utc_timestamp = timestamp + ptp_utc_tai_offset;
+  auto sec = (uint64_t)floor(utc_timestamp);
   if (sec <= std::numeric_limits<int32_t>::max()) {
-    rs_msg.header.stamp.sec = (uint32_t)floor(timestamp);
-    rs_msg.header.stamp.nanosec = (uint32_t)round((timestamp - rs_msg.header.stamp.sec) * 1e9);
+    rs_msg.header.stamp.sec = (uint32_t)floor(utc_timestamp);
+    rs_msg.header.stamp.nanosec = (uint32_t)round((utc_timestamp - rs_msg.header.stamp.sec) * 1e9);
   } else {
-    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", timestamp);
+    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_timestamp);
   }
   rs_msg.header.frame_id = frame_id_;
   return rs_msg;
@@ -364,12 +370,15 @@ inline hesai_ros_driver::msg::Firetime SourceDriver::ToRosMsg(const double *fire
 inline sensor_msgs::msg::Imu SourceDriver::ToRosMsg(const LidarImuData &imu_config_)
 {
   sensor_msgs::msg::Imu ros_msg;
-  auto sec = (uint64_t)floor(imu_config_.timestamp);
+  // TODO: parameterize and implement properly for all timestamp modes
+  double ptp_utc_tai_offset = -37.0;
+  double utc_timestamp = imu_config_.timestamp + ptp_utc_tai_offset;
+  auto sec = (uint64_t)floor(utc_timestamp);
   if (sec <= std::numeric_limits<int32_t>::max()) {
-    ros_msg.header.stamp.sec = (uint32_t)floor(imu_config_.timestamp);
-    ros_msg.header.stamp.nanosec = (uint32_t)round((imu_config_.timestamp - ros_msg.header.stamp.sec) * 1e9);
+    ros_msg.header.stamp.sec = (uint32_t)floor(utc_timestamp);
+    ros_msg.header.stamp.nanosec = (uint32_t)round((utc_timestamp - ros_msg.header.stamp.sec) * 1e9);
   } else {
-    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", imu_config_.timestamp);
+    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_timestamp);
   }
   ros_msg.header.frame_id = frame_id_;
   ros_msg.linear_acceleration.x = From_g_To_ms2(imu_config_.imu_accel_x);
