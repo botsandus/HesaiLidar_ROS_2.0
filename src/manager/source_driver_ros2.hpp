@@ -298,7 +298,7 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
     ++iter_timestamp_;   
   }
   // printf("HesaiLidar Runing Status [standby mode:%u]  |  [speed:%u]\n", frame.work_mode, frame.spin_speed);
-  printf("%s frame:%d points:%u packet:%d start time:%lf end time:%lf\n", prefix, frame_index, points_number, packet_number, frame_start_timestamp, frame_end_timestamp) ;
+  // printf("%s frame:%d points:%u packet:%d start time:%lf end time:%lf\n", prefix, frame_index, points_number, packet_number, frame_start_timestamp, frame_end_timestamp) ;
   std::cout.flush();
   // TODO: parameterize and implement properly for all timestamp modes
   double ptp_utc_tai_offset = -37.0;
