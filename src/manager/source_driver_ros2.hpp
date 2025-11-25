@@ -117,7 +117,7 @@ inline void SourceDriver::Init(const YAML::Node& config)
 
   node_ptr_.reset(new rclcpp::Node("hesai_ros_driver_node"));
   if (driver_param.input_param.send_point_cloud_ros) {
-    pub_ = node_ptr_->create_publisher<sensor_msgs::msg::PointCloud2>(driver_param.input_param.ros_send_point_topic, 10);
+    pub_ = node_ptr_->create_publisher<sensor_msgs::msg::PointCloud2>(driver_param.input_param.ros_send_point_topic, rclcpp::SensorDataQoS());
   }
   if (driver_param.input_param.source_type == DATA_FROM_LIDAR) {
     if (driver_param.input_param.ros_send_correction_topic != NULL_TOPIC) {
