@@ -104,6 +104,7 @@ protected:
   ros::Publisher crt_pub_;
   ros::Subscriber crt_sub_;
   ros::Publisher imu_pub_;
+  double ptp_utc_tai_offset = 0;
 };
 
 
@@ -114,6 +115,7 @@ inline void SourceDriver::Init(const YAML::Node& config)
   DriveYamlParam yaml_param;
   yaml_param.GetDriveYamlParam(config, driver_param);
   frame_id_ = driver_param.input_param.frame_id;
+  ptp_utc_tai_offset = driver_param.input_param.ptp_utc_tai_offset;
 
   nh_ = std::unique_ptr<ros::NodeHandle>(new ros::NodeHandle());
   if (driver_param.input_param.send_point_cloud_ros) {
@@ -242,11 +244,12 @@ inline sensor_msgs::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFrame<L
     ++iter_timestamp_;   
   }
   // ros_msg.header.seq = s;
-  int64_t sec = static_cast<int64_t>(frame.points[0].timestamp);  
+  double utc_time = ptp_utc_tai_offset + frame.points[0].timestamp;
+  int64_t sec = static_cast<int64_t>(utc_time);  
   if (sec <= std::numeric_limits<int32_t>::max()) {
-    ros_msg.header.stamp = ros::Time().fromSec(frame.points[0].timestamp);
+    ros_msg.header.stamp = ros::Time().fromSec(utc_time);
   } else {
-    printf("ros1 does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", frame.points[0].timestamp);
+    printf("ros1 does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_time);
   }
   ros_msg.header.frame_id = frame_id_;
   return ros_msg;
@@ -261,6 +264,7 @@ inline hesai_ros_driver::UdpFrame SourceDriver::ToRosMsg(const UdpFrame_t& ros_m
     memcpy(&rawpacket.data[0], &ros_msg[i].buffer[0], ros_msg[i].packet_len);
     rs_msg.packets.push_back(rawpacket);
   }
+  timestamp += ptp_utc_tai_offset;
   int64_t sec = static_cast<int64_t>(timestamp);  
   if (sec <= std::numeric_limits<int32_t>::max()) {
     rs_msg.header.stamp = ros::Time().fromSec(timestamp);
@@ -304,11 +308,12 @@ inline hesai_ros_driver::Firetime SourceDriver::ToRosMsg(const double *firetime_
 inline sensor_msgs::Imu SourceDriver::ToRosMsg(const LidarImuData &imu_config_)
 {
   sensor_msgs::Imu ros_msg;
-  int64_t sec = static_cast<int64_t>(imu_config_.timestamp);  
+  double utc_time = imu_config_.timestamp + ptp_utc_tai_offset;
+  int64_t sec = static_cast<int64_t>(utc_time);  
   if (sec <= std::numeric_limits<int32_t>::max()) {
-    ros_msg.header.stamp = ros::Time().fromSec(imu_config_.timestamp);
+    ros_msg.header.stamp = ros::Time().fromSec(utc_time);
   } else {
-    printf("ros1 does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", imu_config_.timestamp);
+    printf("ros1 does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_time);
   }
   ros_msg.header.frame_id = frame_id_;
   ros_msg.linear_acceleration.x = From_g_To_ms2(imu_config_.imu_accel_x);

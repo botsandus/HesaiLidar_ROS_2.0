@@ -7,7 +7,7 @@ project(hesai_ros_driver)
 #=======================================
 set(VERSION_MAJOR 2)
 set(VERSION_MINOR 2)
-set(VERSION_TINY  2)
+set(VERSION_TINY  4)
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/Version.h.in"
   "${CMAKE_CURRENT_BINARY_DIR}/Version.h"
@@ -56,10 +56,21 @@ if (CMAKE_BUILD_TYPE STREQUAL "")
   add_definitions(-O3)
 endif()
 
-add_definitions(-std=c++17)
+if(($ENV{ROS_DISTRO} STREQUAL "kilted"))
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+elseif(($ENV{ROS_DISTRO} STREQUAL "jazzy"))
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+elseif($ENV{ROS_DISTRO} STREQUAL "humble")  # the ros2 humble requires c++17
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+else()
+add_definitions(-std=c++14)
+endif()
 
-
-add_compile_options(-Wall)
+if(NOT FIND_CUDA)
+	add_compile_options(-Wall)
+endif()
 
 #========================
 # Dependencies Setup
@@ -212,15 +223,16 @@ if($ENV{ROS_VERSION} MATCHES "2")
   "sensor_msgs" 
   # "tf2_geometry_msgs"
   )
+  
+if(($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
+  rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+  target_link_libraries(hesai_ros_driver_node "${cpp_typesupport_target}")
+else()
   rosidl_target_interfaces(hesai_ros_driver_node  ${PROJECT_NAME} "rosidl_typesupport_cpp")
-
+endif()
   install(TARGETS
     hesai_ros_driver_node
     DESTINATION lib/${PROJECT_NAME})
-    
-  set_target_properties(hesai_ros_driver_node PROPERTIES
-    INSTALL_RPATH "$ORIGIN/../"
-  )
 
   install(DIRECTORY
     launch
@@ -231,4 +243,5 @@ if($ENV{ROS_VERSION} MATCHES "2")
   ament_package()
 
 endif($ENV{ROS_VERSION} MATCHES "2")
+
 

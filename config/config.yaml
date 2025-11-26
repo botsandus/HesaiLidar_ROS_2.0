@@ -5,9 +5,9 @@ lidar:
       pcap_path: "Your pcap file"      #The path of pcap file
       correction_file_path: "Your correction file path" #The path of correction file
       firetimes_path: "Your firetime file path"  #The path of firetime files(angle.csv).
-      source_type: 1                                 #The type of data source, 1: real-time lidar connection, 2: pcap, 3: packet rosbag, 4: serial    
+      source_type: 1                                 #The type of data source, 1: real-time lidar connection  
       frame_start_azimuth: 0         #Frame azimuth for Pandar128, range from 1 to 359, set it less than 0 if you do not want to use it
-      device_ip_address: 172.16.0.11 #host_ip_address
+      device_ip_address: 192.168.1.201 #host_ip_address
       udp_port: 2368                   #UDP port of lidar
       is_use_ptc: true
       ptc_port: 9347                   #PTC port of lidar
@@ -26,7 +26,12 @@ lidar:
       fov_start: -1
       fov_end:  -1
       distance_correction_flag: false # set to true when optical centre correction needs to be turned on
+      #The path of channel_fov_filter_path file, like channel 0 filter [10, 20] and [30,40]
+      channel_fov_filter_path: "Your channel fov filter file path" 
+      # compare to channel_fov_filter, multi_fov_filter_ranges for all channels
+      multi_fov_filter_ranges: ""
     ros:
+      ptp_utc_tai_offset: 0.0                       #add utc-tai offset in message header
       ros_frame_id: hesai_lidar                     #Frame id of packet message and point cloud message
       # ros_recv_correction_topic: /lidar_corrections #Topic used to receive corrections file from rosbag
       ros_recv_packet_topic: /lidar_packets         #Topic used to receive lidar packets from rosbag

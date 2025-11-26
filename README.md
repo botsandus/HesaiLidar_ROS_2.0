@@ -89,7 +89,12 @@ lidar:
       fov_end:  -1
       distance_correction_flag: false # set to true when optical centre correction needs to be turned on
       timeout_s: 5
+      #The path of channel_fov_filter file, like channel 0 filter [10, 20] and [30,40]
+      channel_fov_filter_path: "Your channel fov filter file path" 
+      # compare to channel_fov_filter, multi_fov_filter_ranges for all channels
+      multi_fov_filter_ranges:
     ros:
+      ptp_utc_tai_offset: 0.0                       #add utc-tai offset in message header
       ros_frame_id: hesai_lidar                     #Frame id of packet message and point cloud message
       # ros_recv_correction_topic: /lidar_corrections #Topic used to receive corrections file from rosbag
       ros_recv_packet_topic: /lidar_packets         #Topic used to receive lidar packets from rosbag

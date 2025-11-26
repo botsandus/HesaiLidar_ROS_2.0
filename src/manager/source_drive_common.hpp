@@ -37,6 +37,8 @@ public:
         YamlRead<int>(        driver_config, "fov_end",                   driver_param.decoder_param.fov_end, -1);
         YamlRead<int>(        driver_config, "source_type",               source_type, 0);
         YamlRead<bool>(       driver_config, "distance_correction_flag",  driver_param.decoder_param.distance_correction_flag, false);
+        YamlRead<std::string>(   driver_config, "channel_fov_filter_path",     driver_param.decoder_param.channel_fov_filter_path, "");
+        YamlRead<std::string>(   driver_config, "multi_fov_filter_ranges",driver_param.decoder_param.multi_fov_filter_ranges, "");
         driver_param.input_param.source_type = SourceType(source_type);
         // ROS related
         YamlRead<bool>(       config["ros"], "send_packet_ros",            driver_param.input_param.send_packet_ros, false);
@@ -47,7 +49,8 @@ public:
         YamlRead<std::string>(config["ros"], "ros_recv_packet_topic",      driver_param.input_param.ros_recv_packet_topic, "hesai_packets");
         YamlRead<std::string>(config["ros"], "ros_send_correction_topic",  driver_param.input_param.ros_send_correction_topic, NULL_TOPIC);
         YamlRead<std::string>(config["ros"], "ros_recv_correction_topic",  driver_param.input_param.ros_recv_correction_topic, NULL_TOPIC);  
-        YamlRead<std::string>(config["ros"], "ros_send_imu_topic",         driver_param.input_param.ros_send_imu_topic, NULL_TOPIC);              
+        YamlRead<std::string>(config["ros"], "ros_send_imu_topic",         driver_param.input_param.ros_send_imu_topic, NULL_TOPIC);   
+        YamlRead<double>     (config["ros"], "ptp_utc_tai_offset",         driver_param.input_param.ptp_utc_tai_offset, 0);           
         return true;
     }
 

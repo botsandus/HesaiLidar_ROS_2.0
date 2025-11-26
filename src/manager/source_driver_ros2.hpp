@@ -107,6 +107,7 @@ protected:
 
   //spin thread while recieve data from ROS topic
   boost::thread* subscription_spin_thread_;
+  double ptp_utc_tai_offset = 0;
 };
 inline void SourceDriver::Init(const YAML::Node& config)
 {
@@ -114,10 +115,11 @@ inline void SourceDriver::Init(const YAML::Node& config)
   DriveYamlParam yaml_param;
   yaml_param.GetDriveYamlParam(config, driver_param);
   frame_id_ = driver_param.input_param.frame_id;
+  ptp_utc_tai_offset = driver_param.input_param.ptp_utc_tai_offset;
 
   node_ptr_.reset(new rclcpp::Node("hesai_ros_driver_node"));
   if (driver_param.input_param.send_point_cloud_ros) {
-    pub_ = node_ptr_->create_publisher<sensor_msgs::msg::PointCloud2>(driver_param.input_param.ros_send_point_topic, rclcpp::SensorDataQoS());
+    pub_ = node_ptr_->create_publisher<sensor_msgs::msg::PointCloud2>(driver_param.input_param.ros_send_point_topic, 10);
   }
   if (driver_param.input_param.source_type == DATA_FROM_LIDAR) {
     if (driver_param.input_param.ros_send_correction_topic != NULL_TOPIC) {
@@ -244,15 +246,13 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
   }
   // printf("HesaiLidar Runing Status [standby mode:%u]  |  [speed:%u]\n", frame.work_mode, frame.spin_speed);
   std::cout.flush();
-  // TODO: parameterize and implement properly for all timestamp modes
-  double ptp_utc_tai_offset = -37.0;
-  double utc_timestamp = frame.points[0].timestamp + ptp_utc_tai_offset;
-  auto sec = (uint64_t)floor(utc_timestamp);
+  double utc_time = frame.points[0].timestamp + ptp_utc_tai_offset;
+  auto sec = (uint64_t)floor(utc_time);
   if (sec <= std::numeric_limits<int32_t>::max()) {
-    ros_msg.header.stamp.sec = (uint32_t)floor(utc_timestamp);
-    ros_msg.header.stamp.nanosec = (uint32_t)round((utc_timestamp - ros_msg.header.stamp.sec) * 1e9);
+    ros_msg.header.stamp.sec = (uint32_t)floor(utc_time);
+    ros_msg.header.stamp.nanosec = (uint32_t)round((utc_time - ros_msg.header.stamp.sec) * 1e9);
   } else {
-    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", frame.points[0].timestamp);
+    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_time);
   }
   ros_msg.header.frame_id = frame_id_;
   return ros_msg;
@@ -267,6 +267,7 @@ inline hesai_ros_driver::msg::UdpFrame SourceDriver::ToRosMsg(const UdpFrame_t& 
     memcpy(&rawpacket.data[0], &ros_msg[i].buffer[0], ros_msg[i].packet_len);
     rs_msg.packets.push_back(rawpacket);
   }
+  timestamp += ptp_utc_tai_offset;
   auto sec = (uint64_t)floor(timestamp);
   if (sec <= std::numeric_limits<int32_t>::max()) {
     rs_msg.header.stamp.sec = (uint32_t)floor(timestamp);
@@ -311,15 +312,13 @@ inline hesai_ros_driver::msg::Firetime SourceDriver::ToRosMsg(const double *fire
 inline sensor_msgs::msg::Imu SourceDriver::ToRosMsg(const LidarImuData &imu_config_)
 {
   sensor_msgs::msg::Imu ros_msg;
-  // TODO: parameterize and implement properly for all timestamp modes
-  double ptp_utc_tai_offset = -37.0;
-  double utc_timestamp = imu_config_.timestamp + ptp_utc_tai_offset;
-  auto sec = (uint64_t)floor(utc_timestamp);
+  double utc_time = imu_config_.timestamp + ptp_utc_tai_offset;
+  auto sec = (uint64_t)floor(utc_time);
   if (sec <= std::numeric_limits<int32_t>::max()) {
-    ros_msg.header.stamp.sec = (uint32_t)floor(utc_timestamp);
-    ros_msg.header.stamp.nanosec = (uint32_t)round((utc_timestamp - ros_msg.header.stamp.sec) * 1e9);
+    ros_msg.header.stamp.sec = (uint32_t)floor(utc_time);
+    ros_msg.header.stamp.nanosec = (uint32_t)round((utc_time - ros_msg.header.stamp.sec) * 1e9);
   } else {
-    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", imu_config_.timestamp);
+    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_time);
   }
   ros_msg.header.frame_id = frame_id_;
   ros_msg.linear_acceleration.x = From_g_To_ms2(imu_config_.imu_accel_x);
