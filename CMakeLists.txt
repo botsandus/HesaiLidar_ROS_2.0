@@ -217,6 +217,10 @@ if($ENV{ROS_VERSION} MATCHES "2")
   install(TARGETS
     hesai_ros_driver_node
     DESTINATION lib/${PROJECT_NAME})
+    
+  set_target_properties(hesai_ros_driver_node PROPERTIES
+    INSTALL_RPATH "$ORIGIN/../"
+  )
 
   install(DIRECTORY
     launch
@@ -227,5 +231,4 @@ if($ENV{ROS_VERSION} MATCHES "2")
   ament_package()
 
 endif($ENV{ROS_VERSION} MATCHES "2")
-
 
