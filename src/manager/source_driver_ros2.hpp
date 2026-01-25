@@ -230,7 +230,7 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
   sensor_msgs::PointCloud2Iterator<double> iter_timestamp_(ros_msg, "timestamp");
   for (size_t i = 0; i < frame.points_num; i++)
   {
-    LidarPointXYZIRT point = frame.points[i];
+    const LidarPointXYZIRT& point = frame.points[i];
     *iter_x_ = point.x;
     *iter_y_ = point.y;
     *iter_z_ = point.z;
@@ -252,7 +252,9 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
     ros_msg.header.stamp.sec = (uint32_t)floor(utc_time);
     ros_msg.header.stamp.nanosec = (uint32_t)round((utc_time - ros_msg.header.stamp.sec) * 1e9);
   } else {
-    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_time);
+    RCLCPP_WARN_THROTTLE(node_ptr_->get_logger(),
+        *node_ptr_->get_clock(), 5000, 
+        "does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)", utc_time);
   }
   ros_msg.header.frame_id = frame_id_;
   return ros_msg;
@@ -260,12 +262,12 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
 
 inline hesai_ros_driver::msg::UdpFrame SourceDriver::ToRosMsg(const UdpFrame_t& ros_msg, double timestamp) {
   hesai_ros_driver::msg::UdpFrame rs_msg;
+  rs_msg.packets.reserve(ros_msg.size());
   for (size_t i = 0 ; i < ros_msg.size(); i++) {
-    hesai_ros_driver::msg::UdpPacket rawpacket;
+    rs_msg.packets.emplace_back();
+    auto &rawpacket = rs_msg.packets.back();
     rawpacket.size = ros_msg[i].packet_len;
-    rawpacket.data.resize(ros_msg[i].packet_len);
-    memcpy(&rawpacket.data[0], &ros_msg[i].buffer[0], ros_msg[i].packet_len);
-    rs_msg.packets.push_back(rawpacket);
+    rawpacket.data.assign(ros_msg[i].buffer, ros_msg[i].buffer + ros_msg[i].packet_len);
   }
   timestamp += ptp_utc_tai_offset;
   auto sec = (uint64_t)floor(timestamp);
@@ -273,17 +275,18 @@ inline hesai_ros_driver::msg::UdpFrame SourceDriver::ToRosMsg(const UdpFrame_t& 
     rs_msg.header.stamp.sec = (uint32_t)floor(timestamp);
     rs_msg.header.stamp.nanosec = (uint32_t)round((timestamp - rs_msg.header.stamp.sec) * 1e9);
   } else {
-    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", timestamp);
+    RCLCPP_WARN_THROTTLE(node_ptr_->get_logger(),
+        *node_ptr_->get_clock(), 5000, 
+        "does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)", timestamp);
   }
   rs_msg.header.frame_id = frame_id_;
   return rs_msg;
 }
 
 inline std_msgs::msg::UInt8MultiArray SourceDriver::ToRosMsg(const u8Array_t& correction_string) {
-  auto msg = std::make_shared<std_msgs::msg::UInt8MultiArray>();
-  msg->data.resize(correction_string.size());
-  std::copy(correction_string.begin(), correction_string.end(), msg->data.begin());
-  return *msg;
+  std_msgs::msg::UInt8MultiArray msg;
+  msg.data = correction_string;
+  return msg;
 }
 
 inline hesai_ros_driver::msg::LossPacket SourceDriver::ToRosMsg(const uint32_t& total_packet_count, const uint32_t& total_packet_loss_count)
@@ -298,14 +301,15 @@ inline hesai_ros_driver::msg::Ptp SourceDriver::ToRosMsg(const uint8_t& ptp_lock
 {
   hesai_ros_driver::msg::Ptp msg;
   msg.ptp_lock_offset = ptp_lock_offset;
-  std::copy(ptp_status.begin(), ptp_status.begin() + std::min(16ul, ptp_status.size()), msg.ptp_status.begin());
+  std::fill(msg.ptp_status.begin(), msg.ptp_status.end(), 0);
+  for (size_t i = 0; i < std::min<size_t>(16, ptp_status.size()); ++i) msg.ptp_status[i] = ptp_status[i];
   return msg;
 }
 
 inline hesai_ros_driver::msg::Firetime SourceDriver::ToRosMsg(const double *firetime_correction_)
 {
   hesai_ros_driver::msg::Firetime msg;
-  std::copy(firetime_correction_, firetime_correction_ + 512, msg.data.begin());
+  for (size_t i = 0; i < 512; ++i) msg.data[i] = firetime_correction_[i];
   return msg;
 }
 
@@ -318,7 +322,9 @@ inline sensor_msgs::msg::Imu SourceDriver::ToRosMsg(const LidarImuData &imu_conf
     ros_msg.header.stamp.sec = (uint32_t)floor(utc_time);
     ros_msg.header.stamp.nanosec = (uint32_t)round((utc_time - ros_msg.header.stamp.sec) * 1e9);
   } else {
-    printf("does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)\n", utc_time);
+    RCLCPP_WARN_THROTTLE(node_ptr_->get_logger(),
+        *node_ptr_->get_clock(), 5000, 
+        "does not support timestamps greater than 19 January 2038 03:14:07 (now %lf)", utc_time);
   }
   ros_msg.header.frame_id = frame_id_;
   ros_msg.linear_acceleration.x = From_g_To_ms2(imu_config_.imu_accel_x);
@@ -339,8 +345,7 @@ inline void SourceDriver::RecievePacket(const hesai_ros_driver::msg::UdpFrame::S
 
 inline void SourceDriver::RecieveCorrection(const std_msgs::msg::UInt8MultiArray::SharedPtr msg)
 {
-  driver_ptr_->lidar_ptr_->correction_string_.resize(msg->data.size());
-  std::copy(msg->data.begin(), msg->data.end(), driver_ptr_->lidar_ptr_->correction_string_.begin());
+  driver_ptr_->lidar_ptr_->correction_string_ = msg->data;
   while (1) {
     if (! driver_ptr_->lidar_ptr_->LoadCorrectionFromROSbag()) {
       break;

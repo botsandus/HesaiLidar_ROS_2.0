@@ -11,7 +11,7 @@ lidar:
       udp_port: 2368                   #UDP port of lidar
       is_use_ptc: true
       ptc_port: 9347                   #PTC port of lidar
-      multicast_ip_address: 255.255.255.255  #multicast ip address
+      #multicast_ip_address: 255.255.255.255  #multicast ip address
       #transform param
       transform_flag: false
       x: 0
@@ -39,5 +39,5 @@ lidar:
       ros_send_point_cloud_topic: /lidar_points     #Topic used to send point cloud through ROS
       # ros_send_correction_topic: /lidar_corrections #Topic used to send correction through ROS
       ros_send_imu_topic: /lidar_imu                #Topic used to send lidar imu message
-      send_packet_ros: true                         #true: Send packets through ROS 
+      send_packet_ros: false                         #true: Send packets through ROS 
       send_point_cloud_ros: true                    #true: Send point cloud through ROS    
