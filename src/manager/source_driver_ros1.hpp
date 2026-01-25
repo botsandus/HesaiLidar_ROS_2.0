@@ -229,7 +229,7 @@ inline sensor_msgs::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFrame<L
   sensor_msgs::PointCloud2Iterator<double> iter_timestamp_(ros_msg, "timestamp");
   for (size_t i = 0; i < frame.points_num; i++)
   {
-    LidarPointXYZIRT point = frame.points[i];
+    const LidarPointXYZIRT& point = frame.points[i];
     *iter_x_ = point.x;
     *iter_y_ = point.y;
     *iter_z_ = point.z;
@@ -258,11 +258,10 @@ inline sensor_msgs::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFrame<L
 inline hesai_ros_driver::UdpFrame SourceDriver::ToRosMsg(const UdpFrame_t& ros_msg, double timestamp) {
   hesai_ros_driver::UdpFrame rs_msg;
   for (size_t i = 0 ; i < ros_msg.size(); i++) {
-    hesai_ros_driver::UdpPacket rawpacket;
+    rs_msg.packets.emplace_back();
+    auto &rawpacket = rs_msg.packets.back();
     rawpacket.size = ros_msg[i].packet_len;
-    rawpacket.data.resize(ros_msg[i].packet_len);
-    memcpy(&rawpacket.data[0], &ros_msg[i].buffer[0], ros_msg[i].packet_len);
-    rs_msg.packets.push_back(rawpacket);
+    rawpacket.data.assign(ros_msg[i].buffer, ros_msg[i].buffer + ros_msg[i].packet_len);
   }
   timestamp += ptp_utc_tai_offset;
   int64_t sec = static_cast<int64_t>(timestamp);  
@@ -278,7 +277,7 @@ inline hesai_ros_driver::UdpFrame SourceDriver::ToRosMsg(const UdpFrame_t& ros_m
 inline std_msgs::UInt8MultiArray SourceDriver::ToRosMsg(const u8Array_t& correction_string) {
   std_msgs::UInt8MultiArray msg;
   msg.data.resize(correction_string.size());
-  std::copy(correction_string.begin(), correction_string.end(), msg.data.begin());
+  msg.data = correction_string;
   return msg;
 }
 
@@ -294,14 +293,15 @@ inline hesai_ros_driver::Ptp SourceDriver::ToRosMsg(const uint8_t& ptp_lock_offs
 {
   hesai_ros_driver::Ptp msg;
   msg.ptp_lock_offset = ptp_lock_offset;
-  std::copy(ptp_status.begin(), ptp_status.begin() + std::min(16ul, ptp_status.size()), msg.ptp_status.begin());
+  std::fill(msg.ptp_status.begin(), msg.ptp_status.end(), 0);
+  for (size_t i = 0; i < std::min<size_t>(16, ptp_status.size()); ++i) msg.ptp_status[i] = ptp_status[i];
   return msg;
 }
 
 inline hesai_ros_driver::Firetime SourceDriver::ToRosMsg(const double *firetime_correction_)
 {
   hesai_ros_driver::Firetime msg;
-  std::copy(firetime_correction_, firetime_correction_ + 512, msg.data.begin());
+  for (size_t i = 0; i < 512; ++i) msg.data[i] = firetime_correction_[i];
   return msg;
 }
 
@@ -335,7 +335,7 @@ inline void SourceDriver::RecievePacket(const hesai_ros_driver::UdpFrame& msg)
 inline void SourceDriver::RecieveCorrection(const std_msgs::UInt8MultiArray& msg)
 {
   driver_ptr_->lidar_ptr_->correction_string_.resize(msg.data.size());
-  std::copy(msg.data.begin(), msg.data.end(), driver_ptr_->lidar_ptr_->correction_string_.begin());
+  driver_ptr_->lidar_ptr_->correction_string_ = msg.data;
   while (1) {
     if (! driver_ptr_->lidar_ptr_->LoadCorrectionFromROSbag()) {
       break;
