@@ -215,19 +215,22 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
   offset = addPointField(ros_msg, "z", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
   offset = addPointField(ros_msg, "intensity", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
   offset = addPointField(ros_msg, "ring", 1, sensor_msgs::msg::PointField::UINT16, offset);
-  offset = addPointField(ros_msg, "timestamp", 1, sensor_msgs::msg::PointField::FLOAT64, offset);
+  offset = addPointField(ros_msg, "t", 1, sensor_msgs::msg::PointField::UINT32, offset);
 
   ros_msg.point_step = offset;
   ros_msg.row_step = ros_msg.width * ros_msg.point_step;
   ros_msg.is_dense = false;
   ros_msg.data.resize(frame.points_num * ros_msg.point_step);
 
+  // Compute scan-start timestamp (first point, converted to UTC)
+  double scan_start_s = frame.points[0].timestamp + ptp_utc_tai_offset;
+
   sensor_msgs::PointCloud2Iterator<float> iter_x_(ros_msg, "x");
   sensor_msgs::PointCloud2Iterator<float> iter_y_(ros_msg, "y");
   sensor_msgs::PointCloud2Iterator<float> iter_z_(ros_msg, "z");
   sensor_msgs::PointCloud2Iterator<float> iter_intensity_(ros_msg, "intensity");
   sensor_msgs::PointCloud2Iterator<uint16_t> iter_ring_(ros_msg, "ring");
-  sensor_msgs::PointCloud2Iterator<double> iter_timestamp_(ros_msg, "timestamp");
+  sensor_msgs::PointCloud2Iterator<uint32_t> iter_t_(ros_msg, "t");
   for (size_t i = 0; i < frame.points_num; i++)
   {
     LidarPointXYZIRT point = frame.points[i];
@@ -236,17 +239,19 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
     *iter_z_ = point.z;
     *iter_intensity_ = point.intensity;
     *iter_ring_ = point.ring;
-    *iter_timestamp_ = point.timestamp + ptp_utc_tai_offset;
+    double pt_utc = point.timestamp + ptp_utc_tai_offset;
+    double offset_s = pt_utc - scan_start_s;
+    *iter_t_ = (offset_s > 0.0) ? static_cast<uint32_t>(offset_s * 1e9) : 0u;
     ++iter_x_;
     ++iter_y_;
     ++iter_z_;
     ++iter_intensity_;
     ++iter_ring_;
-    ++iter_timestamp_;   
+    ++iter_t_;
   }
   // printf("HesaiLidar Runing Status [standby mode:%u]  |  [speed:%u]\n", frame.work_mode, frame.spin_speed);
   std::cout.flush();
-  double utc_time = frame.points[0].timestamp + ptp_utc_tai_offset;
+  double utc_time = scan_start_s;
   auto sec = (uint64_t)floor(utc_time);
   if (sec <= std::numeric_limits<int32_t>::max()) {
     ros_msg.header.stamp.sec = (uint32_t)floor(utc_time);
