@@ -203,11 +203,16 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
 {
   sensor_msgs::msg::PointCloud2 ros_msg;
 
+  // Reshape from flat column-major (parser emits [col0_ring0..ring127, col1_ring0..ring127, ...])
+  // to 2D row-major (height=n_rings, width=n_cols) expected by the deskew node.
+  const uint16_t n_rings = frame.laser_num;
+  const uint32_t n_cols = (n_rings > 0) ? frame.points_num / n_rings : frame.points_num;
+
   int fields = 6;
   ros_msg.fields.clear();
   ros_msg.fields.reserve(fields);
-  ros_msg.width = frame.points_num; 
-  ros_msg.height = 1; 
+  ros_msg.height = n_rings;
+  ros_msg.width = n_cols;
 
   int offset = 0;
   offset = addPointField(ros_msg, "x", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
@@ -218,36 +223,32 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
   offset = addPointField(ros_msg, "t", 1, sensor_msgs::msg::PointField::UINT32, offset);
 
   ros_msg.point_step = offset;
-  ros_msg.row_step = ros_msg.width * ros_msg.point_step;
+  ros_msg.row_step = n_cols * ros_msg.point_step;
   ros_msg.is_dense = false;
   ros_msg.data.resize(frame.points_num * ros_msg.point_step);
 
   // Compute scan-start timestamp (first point, converted to UTC)
   double scan_start_s = frame.points[0].timestamp + ptp_utc_tai_offset;
 
-  sensor_msgs::PointCloud2Iterator<float> iter_x_(ros_msg, "x");
-  sensor_msgs::PointCloud2Iterator<float> iter_y_(ros_msg, "y");
-  sensor_msgs::PointCloud2Iterator<float> iter_z_(ros_msg, "z");
-  sensor_msgs::PointCloud2Iterator<float> iter_intensity_(ros_msg, "intensity");
-  sensor_msgs::PointCloud2Iterator<uint16_t> iter_ring_(ros_msg, "ring");
-  sensor_msgs::PointCloud2Iterator<uint32_t> iter_t_(ros_msg, "t");
-  for (size_t i = 0; i < frame.points_num; i++)
-  {
-    LidarPointXYZIRT point = frame.points[i];
-    *iter_x_ = point.x;
-    *iter_y_ = point.y;
-    *iter_z_ = point.z;
-    *iter_intensity_ = point.intensity;
-    *iter_ring_ = point.ring;
-    double pt_utc = point.timestamp + ptp_utc_tai_offset;
-    double offset_s = pt_utc - scan_start_s;
-    *iter_t_ = (offset_s > 0.0) ? static_cast<uint32_t>(offset_s * 1e9) : 0u;
-    ++iter_x_;
-    ++iter_y_;
-    ++iter_z_;
-    ++iter_intensity_;
-    ++iter_ring_;
-    ++iter_t_;
+  // Write points in row-major order: output[ring * n_cols + col]
+  // Parser stores column-major: frame.points[col * n_rings + ring]
+  uint8_t* out_data = ros_msg.data.data();
+  const int pt_step = ros_msg.point_step;
+  for (uint32_t col = 0; col < n_cols; ++col) {
+    for (uint16_t ring = 0; ring < n_rings; ++ring) {
+      const size_t src_idx = static_cast<size_t>(col) * n_rings + ring;
+      const size_t dst_idx = static_cast<size_t>(ring) * n_cols + col;
+      const auto& point = frame.points[src_idx];
+
+      uint8_t* dst = out_data + dst_idx * pt_step;
+      *reinterpret_cast<float*>(dst + 0)  = point.x;
+      *reinterpret_cast<float*>(dst + 4)  = point.y;
+      *reinterpret_cast<float*>(dst + 8)  = point.z;
+      *reinterpret_cast<float*>(dst + 12) = point.intensity;
+      *reinterpret_cast<uint16_t*>(dst + 16) = ring;
+      double offset_s = (point.timestamp + ptp_utc_tai_offset) - scan_start_s;
+      *reinterpret_cast<uint32_t*>(dst + 18) = (offset_s > 0.0) ? static_cast<uint32_t>(offset_s * 1e9) : 0u;
+    }
   }
   // printf("HesaiLidar Runing Status [standby mode:%u]  |  [speed:%u]\n", frame.work_mode, frame.spin_speed);
   std::cout.flush();
