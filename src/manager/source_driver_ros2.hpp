@@ -236,7 +236,7 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
     *iter_z_ = point.z;
     *iter_intensity_ = point.intensity;
     *iter_ring_ = point.ring;
-    *iter_timestamp_ = point.timestamp;
+    *iter_timestamp_ = point.timestamp + ptp_utc_tai_offset;
     ++iter_x_;
     ++iter_y_;
     ++iter_z_;
