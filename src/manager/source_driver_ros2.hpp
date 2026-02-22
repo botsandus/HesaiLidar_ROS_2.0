@@ -225,7 +225,7 @@ inline sensor_msgs::msg::PointCloud2 SourceDriver::ToRosMsg(const LidarDecodedFr
   ros_msg.point_step = offset;
   ros_msg.row_step = n_cols * ros_msg.point_step;
   ros_msg.is_dense = false;
-  ros_msg.data.resize(frame.points_num * ros_msg.point_step);
+  ros_msg.data.resize(static_cast<size_t>(n_rings) * n_cols * ros_msg.point_step);
 
   // Compute scan-start timestamp (first point, converted to UTC)
   double scan_start_s = frame.points[0].timestamp + ptp_utc_tai_offset;
