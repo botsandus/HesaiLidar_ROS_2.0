@@ -262,7 +262,8 @@ endif()
 
   # Composable node shared library
   add_library(hesai_composable_node SHARED
-    src/manager/node_manager.cc)
+    src/manager/node_manager.cc
+    src/manager/hesai_composable_node.cpp)
   target_include_directories(hesai_composable_node PRIVATE
     src/manager
     src/msg/ros_msg
