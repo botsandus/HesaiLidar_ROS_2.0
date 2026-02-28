@@ -131,9 +131,10 @@ if($ENV{ROS_VERSION} MATCHES "2")
 
     find_package(ament_cmake REQUIRED)
     find_package(sensor_msgs REQUIRED)
-    find_package(std_msgs REQUIRED)  
+    find_package(std_msgs REQUIRED)
     find_package(rclcpp_action REQUIRED)
-    find_package(rosidl_typesupport_c REQUIRED) 
+    find_package(rclcpp_components REQUIRED)
+    find_package(rosidl_typesupport_c REQUIRED)
     find_package(rosidl_default_generators REQUIRED)
     find_package(builtin_interfaces REQUIRED)
     find_package(std_msgs REQUIRED)
@@ -258,6 +259,44 @@ endif()
           launch
           rviz
           DESTINATION share/${PROJECT_NAME})
+
+  # Composable node shared library
+  add_library(hesai_composable_node SHARED
+    src/manager/node_manager.cc)
+  target_include_directories(hesai_composable_node PRIVATE
+    src/manager
+    src/msg/ros_msg
+    src/msg/rs_msg
+    src/utility
+    ${CMAKE_CURRENT_BINARY_DIR}
+  )
+  target_link_libraries(hesai_composable_node
+    ${YAML_CPP_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${LIB_TARGETS}
+  )
+  ament_target_dependencies(hesai_composable_node
+    "ament_index_cpp"
+    "rcl_interfaces"
+    "rclcpp"
+    "rcutils"
+    "std_msgs"
+    "sensor_msgs"
+    "rclcpp_components"
+  )
+
+if(($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
+  target_link_libraries(hesai_composable_node "${cpp_typesupport_target}")
+else()
+  rosidl_target_interfaces(hesai_composable_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
+endif()
+
+  rclcpp_components_register_nodes(hesai_composable_node "hesai_ros_driver::HesaiComposableNode")
+
+  install(TARGETS hesai_composable_node
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin)
 
   ament_package()
 

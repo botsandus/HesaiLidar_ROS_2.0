@@ -41,6 +41,20 @@ void NodeManager::Init(const YAML::Node& config)
   }
 }
 
+#ifdef ROS2_FOUND
+void NodeManager::Init(const YAML::Node& config, std::shared_ptr<rclcpp::Node> external_node)
+{
+  YAML::Node lidar_config = YamlSubNodeAbort(config, "lidar");
+  for (uint8_t i = 0; i < lidar_config.size(); ++i)
+  {
+    auto source = std::make_shared<SourceDriver>(SourceType::DATA_FROM_LIDAR);
+    source->SetExternalNode(external_node);
+    source->Init(lidar_config[i]);
+    sources_driver_.emplace_back(source);
+  }
+}
+#endif
+
 void NodeManager::Start()
 {
   for (auto& iter : sources_driver_)

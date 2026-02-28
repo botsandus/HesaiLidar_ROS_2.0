@@ -43,6 +43,10 @@ public:
 
   // Initialize ROS nodes based on configuration files
   void Init(const YAML::Node& config);
+#ifdef ROS2_FOUND
+  // Initialize with an external ROS node (for composable node usage)
+  void Init(const YAML::Node& config, std::shared_ptr<rclcpp::Node> external_node);
+#endif
   // Start working
   void Start();
   // Stop working

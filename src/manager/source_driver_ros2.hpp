@@ -61,6 +61,7 @@ public:
   virtual ~SourceDriver();
   SourceDriver(SourceType src_type) {};
   void SpinRos2(){rclcpp::spin(this->node_ptr_);}
+  void SetExternalNode(std::shared_ptr<rclcpp::Node> node) { node_ptr_ = node; external_node_ = true; }
   std::shared_ptr<rclcpp::Node> node_ptr_;
   std::shared_ptr<HesaiLidarSdk<LidarPointXYZIRT>> driver_ptr_;
 
@@ -107,6 +108,7 @@ protected:
 
   //spin thread while recieve data from ROS topic
   boost::thread* subscription_spin_thread_;
+  bool external_node_ = false;
   double ptp_utc_tai_offset = 0;
 };
 inline void SourceDriver::Init(const YAML::Node& config)
@@ -117,7 +119,9 @@ inline void SourceDriver::Init(const YAML::Node& config)
   frame_id_ = driver_param.input_param.frame_id;
   ptp_utc_tai_offset = driver_param.input_param.ptp_utc_tai_offset;
 
-  node_ptr_.reset(new rclcpp::Node("hesai_ros_driver_node"));
+  if (!node_ptr_) {
+    node_ptr_.reset(new rclcpp::Node("hesai_ros_driver_node"));
+  }
   if (driver_param.input_param.send_point_cloud_ros) {
     pub_ = node_ptr_->create_publisher<sensor_msgs::msg::PointCloud2>(driver_param.input_param.ros_send_point_topic, rclcpp::SensorDataQoS());
   }
@@ -138,7 +142,9 @@ inline void SourceDriver::Init(const YAML::Node& config)
     std::bind(&SourceDriver::RecieveCorrection, this, std::placeholders::_1));
   }
     driver_param.decoder_param.enable_udp_thread = false;
-    subscription_spin_thread_ = new boost::thread(boost::bind(&SourceDriver::SpinRos2,this));
+    if (!external_node_) {
+      subscription_spin_thread_ = new boost::thread(boost::bind(&SourceDriver::SpinRos2,this));
+    }
   }
   imu_pub_ = node_ptr_->create_publisher<sensor_msgs::msg::Imu>(driver_param.input_param.ros_send_imu_topic, 10);
   
