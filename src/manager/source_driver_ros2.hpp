@@ -32,6 +32,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <std_msgs/msg/u_int8_multi_array.hpp>
+#include <std_msgs/msg/float64.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sstream>
 #include <hesai_ros_driver/msg/udp_frame.hpp>
@@ -45,6 +46,8 @@
 #include <chrono>
 #include <string>
 #include <functional>
+#include <mutex>
+#include <vector>
 #include <boost/thread.hpp>
 #include "source_drive_common.hpp"
 
@@ -110,6 +113,11 @@ protected:
   boost::thread* subscription_spin_thread_;
   bool external_node_ = false;
   double ptp_utc_tai_offset = 0;
+
+  rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr delay_pub_;
+  rclcpp::TimerBase::SharedPtr delay_timer_;
+  std::vector<double> delay_samples_;
+  std::mutex delay_mutex_;
 };
 inline void SourceDriver::Init(const YAML::Node& config)
 {
@@ -125,6 +133,17 @@ inline void SourceDriver::Init(const YAML::Node& config)
   if (driver_param.input_param.send_point_cloud_ros) {
     pub_ = node_ptr_->create_publisher<sensor_msgs::msg::PointCloud2>(driver_param.input_param.ros_send_point_topic, rclcpp::SensorDataQoS());
   }
+  delay_pub_ = node_ptr_->create_publisher<std_msgs::msg::Float64>("~/delay", 10);
+  delay_timer_ = node_ptr_->create_wall_timer(std::chrono::seconds(1), [this]() {
+    std::lock_guard<std::mutex> lock(delay_mutex_);
+    if (delay_samples_.empty()) return;
+    double sum = 0.0;
+    for (double s : delay_samples_) sum += s;
+    std_msgs::msg::Float64 msg;
+    msg.data = sum / delay_samples_.size();
+    delay_pub_->publish(msg);
+    delay_samples_.clear();
+  });
   if (driver_param.input_param.source_type == DATA_FROM_LIDAR) {
     if (driver_param.input_param.ros_send_correction_topic != NULL_TOPIC) {
       crt_pub_ = node_ptr_->create_publisher<std_msgs::msg::UInt8MultiArray>(driver_param.input_param.ros_send_correction_topic, 10);
@@ -192,7 +211,14 @@ inline void SourceDriver::SendPacket(const UdpFrame_t& msg, double timestamp)
 
 inline void SourceDriver::SendPointCloud(const LidarDecodedFrame<LidarPointXYZIRT>& msg)
 {
-  pub_->publish(ToRosMsg(msg, frame_id_));
+  auto ros_msg = ToRosMsg(msg, frame_id_);
+  pub_->publish(ros_msg);
+  rclcpp::Time stamp(ros_msg.header.stamp);
+  double delay = (node_ptr_->now() - stamp).seconds();
+  {
+    std::lock_guard<std::mutex> lock(delay_mutex_);
+    delay_samples_.push_back(delay);
+  }
 }
 
 inline void SourceDriver::SendCorrection(const u8Array_t& msg)
