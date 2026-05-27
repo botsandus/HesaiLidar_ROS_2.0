@@ -57,7 +57,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "")
   add_definitions(-O3)
 endif()
 
-if(($ENV{ROS_DISTRO} STREQUAL "kilted"))
+if(($ENV{ROS_DISTRO} STREQUAL "lyrical") OR ($ENV{ROS_DISTRO} STREQUAL "kilted"))
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 elseif(($ENV{ROS_DISTRO} STREQUAL "jazzy"))
