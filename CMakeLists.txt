@@ -130,6 +130,7 @@ if($ENV{ROS_VERSION} MATCHES "2")
     set(CMAKE_CXX_STANDARD 14)
 
     find_package(ament_cmake REQUIRED)
+    find_package(ament_cmake_target_dependencies REQUIRED)
     find_package(sensor_msgs REQUIRED)
     find_package(std_msgs REQUIRED)
     find_package(rclcpp_action REQUIRED)
@@ -231,6 +232,7 @@ endif($ENV{ROS_VERSION} MATCHES "1")
 
 if($ENV{ROS_VERSION} MATCHES "2")
   find_package(ament_cmake REQUIRED)
+  find_package(ament_cmake_target_dependencies REQUIRED)
   find_package(ament_index_cpp REQUIRED)
   ament_target_dependencies(hesai_ros_driver_node 
   "ament_index_cpp"
