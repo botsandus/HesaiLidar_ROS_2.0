@@ -242,7 +242,7 @@ if($ENV{ROS_VERSION} MATCHES "2")
     ${sensor_msgs_TARGETS}
   )
   
-if(($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
+if(($ENV{ROS_DISTRO} STREQUAL "lyrical") OR ($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
   rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
   target_link_libraries(hesai_ros_driver_node "${cpp_typesupport_target}")
 else()
@@ -287,7 +287,7 @@ endif()
     ${rclcpp_components_TARGETS}
   )
 
-if(($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
+if(($ENV{ROS_DISTRO} STREQUAL "lyrical") OR ($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
   target_link_libraries(hesai_composable_node "${cpp_typesupport_target}")
 else()
   rosidl_target_interfaces(hesai_composable_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
