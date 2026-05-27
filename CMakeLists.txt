@@ -232,16 +232,14 @@ endif($ENV{ROS_VERSION} MATCHES "1")
 
 if($ENV{ROS_VERSION} MATCHES "2")
   find_package(ament_cmake REQUIRED)
-  find_package(ament_cmake_target_dependencies REQUIRED)
   find_package(ament_index_cpp REQUIRED)
-  ament_target_dependencies(hesai_ros_driver_node 
-  "ament_index_cpp"
-  "rcl_interfaces"
-  "rclcpp" 
-  "rcutils"
-  "std_msgs" 
-  "sensor_msgs" 
-  # "tf2_geometry_msgs"
+  target_link_libraries(hesai_ros_driver_node
+    ament_index_cpp::ament_index_cpp
+    rclcpp::rclcpp
+    rcutils::rcutils
+    ${rcl_interfaces_TARGETS}
+    ${std_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
   )
   
 if(($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
@@ -279,14 +277,14 @@ endif()
     ${Boost_LIBRARIES}
     ${LIB_TARGETS}
   )
-  ament_target_dependencies(hesai_composable_node
-    "ament_index_cpp"
-    "rcl_interfaces"
-    "rclcpp"
-    "rcutils"
-    "std_msgs"
-    "sensor_msgs"
-    "rclcpp_components"
+  target_link_libraries(hesai_composable_node
+    ament_index_cpp::ament_index_cpp
+    rclcpp::rclcpp
+    rcutils::rcutils
+    ${rcl_interfaces_TARGETS}
+    ${std_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${rclcpp_components_TARGETS}
   )
 
 if(($ENV{ROS_DISTRO} STREQUAL "kilted") OR ($ENV{ROS_DISTRO} STREQUAL "jazzy") OR ($ENV{ROS_DISTRO} STREQUAL "humble"))
