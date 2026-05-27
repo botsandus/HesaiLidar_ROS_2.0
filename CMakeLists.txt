@@ -230,6 +230,7 @@ endif($ENV{ROS_VERSION} MATCHES "1")
 #Ros2#
 
 if($ENV{ROS_VERSION} MATCHES "2")
+  find_package(ament_cmake REQUIRED)
   find_package(ament_index_cpp REQUIRED)
   ament_target_dependencies(hesai_ros_driver_node 
   "ament_index_cpp"
