@@ -23,6 +23,7 @@ public:
         YamlRead<std::string>(driver_config, "correction_file_path",    driver_param.input_param.correction_file_path, "");
         YamlRead<bool>       (driver_config, "is_use_ptc",              driver_param.input_param.is_use_ptc, false);
         YamlRead<bool>       (driver_config, "require_correction",      driver_param.input_param.require_correction, false);
+        YamlRead<std::string>(driver_config, "lidar_type",              driver_param.input_param.lidar_type, "");
         // decoder related
         YamlRead<bool>(       driver_config, "pcap_play_synchronization", driver_param.decoder_param.pcap_play_synchronization, false);
         YamlRead<bool>(       driver_config, "transform_flag",            driver_param.decoder_param.transform_param.use_flag, false);
