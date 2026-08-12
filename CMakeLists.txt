@@ -261,6 +261,14 @@ endif()
           rviz
           DESTINATION share/${PROJECT_NAME})
 
+  # Firetime tables are per-model constants: the lidars do not serve them over
+  # PTC (0xA9 GetLidarFiretimes answers "unsupported"), so the shipped file is
+  # the only source. Install them so launch files can reference them by
+  # package share path instead of provisioning a copy per robot.
+  install(DIRECTORY
+          src/driver/HesaiLidar_SDK_2.0/correction/firetime_correction
+          DESTINATION share/${PROJECT_NAME}/correction)
+
   # Composable node shared library
   add_library(hesai_composable_node SHARED
     src/manager/node_manager.cc
