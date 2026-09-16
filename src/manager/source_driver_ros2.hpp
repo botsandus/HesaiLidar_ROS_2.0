@@ -33,6 +33,9 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <std_msgs/msg/u_int8_multi_array.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
+#include <rcl_interfaces/msg/integer_range.hpp>
+#include <algorithm>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sstream>
 #include <hesai_ros_driver/msg/udp_frame.hpp>
@@ -65,6 +68,9 @@ public:
   SourceDriver(SourceType src_type) {};
   void SpinRos2(){rclcpp::spin(this->node_ptr_);}
   void SetExternalNode(std::shared_ptr<rclcpp::Node> node) { node_ptr_ = node; external_node_ = true; }
+  // Live control of the JT128 noise gate (see DecoderParam::noise_level_filter):
+  // ROS parameter "<ros_frame_id>.noise_level_filter", integer 0..64, 64 = off.
+  void SetNoiseLevelFilter(int level);
   std::shared_ptr<rclcpp::Node> node_ptr_;
   std::shared_ptr<HesaiLidarSdk<LidarPointXYZIRT>> driver_ptr_;
 
@@ -112,6 +118,8 @@ protected:
   //spin thread while recieve data from ROS topic
   boost::thread* subscription_spin_thread_;
   bool external_node_ = false;
+  std::string noise_level_param_name_;
+  rclcpp::node_interfaces::PostSetParametersCallbackHandle::SharedPtr noise_level_cb_handle_;
   double ptp_utc_tai_offset = 0;
 
   rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr delay_pub_;
@@ -187,6 +195,40 @@ inline void SourceDriver::Init(const YAML::Node& config)
     std::cout << "Driver Initialize Error...." << std::endl;
     exit(-1);
   }
+
+  // Per-lidar ROS parameter for the noise gate. The YAML value seeds the
+  // default; a launch-time override or a later `ros2 param set` takes effect on
+  // the next packet without restarting the driver. The integer_range descriptor
+  // makes rclcpp reject anything outside 0..64 before the post-set callback runs.
+  noise_level_param_name_ = frame_id_ + ".noise_level_filter";
+  {
+    rcl_interfaces::msg::ParameterDescriptor desc;
+    desc.description = "Drop returns whose sensor noiseLevel (JT128 weightFactor low 6 bits, 0..63) is >= this value; 64 disables the gate";
+    rcl_interfaces::msg::IntegerRange range;
+    range.from_value = 0; range.to_value = 64; range.step = 1;
+    desc.integer_range.push_back(range);
+    int level = driver_param.decoder_param.noise_level_filter;
+    if (node_ptr_->has_parameter(noise_level_param_name_)) {
+      level = static_cast<int>(node_ptr_->get_parameter(noise_level_param_name_).as_int());
+    } else {
+      level = static_cast<int>(node_ptr_->declare_parameter<int>(noise_level_param_name_, level, desc));
+    }
+    SetNoiseLevelFilter(level);
+  }
+  noise_level_cb_handle_ = node_ptr_->add_post_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter>& params) {
+      for (const auto& p : params) {
+        if (p.get_name() == noise_level_param_name_) SetNoiseLevelFilter(static_cast<int>(p.as_int()));
+      }
+    });
+}
+
+inline void SourceDriver::SetNoiseLevelFilter(int level)
+{
+  if (!driver_ptr_ || !driver_ptr_->lidar_ptr_) return;
+  level = std::max(0, std::min(64, level));
+  driver_ptr_->lidar_ptr_->frame_.fParam.noise_level_filter = static_cast<uint8_t>(level);
+  RCLCPP_INFO(node_ptr_->get_logger(), "%s: noise_level_filter = %d%s", frame_id_.c_str(), level, level >= 64 ? " (off)" : "");
 }
 
 inline void SourceDriver::Start()

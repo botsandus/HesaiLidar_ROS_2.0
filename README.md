@@ -89,6 +89,7 @@ lidar:
       fov_end:  -1
       distance_correction_flag: false # set to true when optical centre correction needs to be turned on
       noise_level_filter: 63          # drop returns with sensor noiseLevel >= this (JT128 weightFactor low 6 bits); 64 disables
+                                      # also a live ROS parameter: <ros_frame_id>.noise_level_filter
       timeout_s: 5
       #The path of channel_fov_filter file, like channel 0 filter [10, 20] and [30,40]
       channel_fov_filter_path: "Your channel fov filter file path" 
