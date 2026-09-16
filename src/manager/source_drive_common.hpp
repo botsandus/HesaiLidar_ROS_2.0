@@ -39,6 +39,7 @@ public:
         YamlRead<int>(        driver_config, "fov_end",                   driver_param.decoder_param.fov_end, -1);
         YamlRead<int>(        driver_config, "source_type",               source_type, 0);
         YamlRead<bool>(       driver_config, "distance_correction_flag",  driver_param.decoder_param.distance_correction_flag, false);
+        YamlRead<int>(        driver_config, "noise_level_filter",        driver_param.decoder_param.noise_level_filter, 63);
         YamlRead<std::string>(   driver_config, "channel_fov_filter_path",     driver_param.decoder_param.channel_fov_filter_path, "");
         YamlRead<std::string>(   driver_config, "multi_fov_filter_ranges",driver_param.decoder_param.multi_fov_filter_ranges, "");
         driver_param.input_param.source_type = SourceType(source_type);
