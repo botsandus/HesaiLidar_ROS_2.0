@@ -253,9 +253,9 @@ inline void SourceDriver::SendPacket(const UdpFrame_t& msg, double timestamp)
 
 inline void SourceDriver::SendPointCloud(const LidarDecodedFrame<LidarPointXYZIRT>& msg)
 {
-  auto ros_msg = ToRosMsg(msg, frame_id_);
-  pub_->publish(ros_msg);
-  rclcpp::Time stamp(ros_msg.header.stamp);
+  auto ros_msg = std::make_unique<sensor_msgs::msg::PointCloud2>(ToRosMsg(msg, frame_id_));
+  rclcpp::Time stamp(ros_msg->header.stamp);
+  pub_->publish(std::move(ros_msg));
   double delay = (node_ptr_->now() - stamp).seconds();
   {
     std::lock_guard<std::mutex> lock(delay_mutex_);
